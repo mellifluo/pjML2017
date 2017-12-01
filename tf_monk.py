@@ -1,57 +1,52 @@
 #!/usr/bin/env python
 
-import tensorflow
-import tensorflow as tf
-import numpy as np
-import matplotlib.pyplot as plt
+from utils import *
 
-# load dataset
-X = np.loadtxt('./monk/monks-1.train', dtype='string', delimiter=' ')
-# label data
-y = X[:,1].astype('float32')
-y = y[..., np.newaxis]
-# input data
-X = X[:,2:-1].astype('float32')
+X, y = init()
 # settings
 inputlayer_neurons = int(X.shape[1])
-hiddenlayer_neurons = 3
+hiddenlayer_neurons = 5
 output_neurons = 1
-epoch = 100
-lr = 0.2
-beta = 0.01
+epoch = 2000
+lr = 3.5
+beta = 0.001
 
 graph = tf.Graph()
 with graph.as_default():
     # input
-    a_0 = tf.constant(X)
+    a0 = tf.constant(X)
     # output
     output = tf.constant(y)
     # weight and bias initialization
     # hidden layer
-    w_1 = tf.Variable(tf.random_uniform([inputlayer_neurons, hiddenlayer_neurons], minval=0.1 , maxval=0.9 , dtype=tf.float32))
-    b_1 = tf.Variable(tf.random_uniform([1, hiddenlayer_neurons], minval=0.1 , maxval=0.9 , dtype=tf.float32))
+    w1 = tf.Variable(tf.random_uniform([inputlayer_neurons, hiddenlayer_neurons], dtype=tf.float32))
+    b1 = tf.Variable(tf.random_uniform([1, hiddenlayer_neurons] , dtype=tf.float32))
     # output layer
-    w_2 = tf.Variable(tf.random_uniform([hiddenlayer_neurons, output_neurons], minval=0.1 , maxval=0.9 , dtype=tf.float32))
-    b_2 = tf.Variable(tf.random_uniform([1, output_neurons], minval=0.1 , maxval=0.9 , dtype=tf.float32))
+    w2 = tf.Variable(tf.random_uniform([hiddenlayer_neurons, output_neurons], dtype=tf.float32))
+    b2 = tf.Variable(tf.random_uniform([1, output_neurons], dtype=tf.float32))
     # putting together
-    a_1 = tf.nn.sigmoid(tf.add(tf.matmul(a_0, w_1), b_1))
-    a_2 = tf.nn.sigmoid(tf.add(tf.matmul(a_1, w_2), b_2))
+    a1 = tf.nn.sigmoid(tf.add(tf.matmul(a0, w1), b1))
+    a2 = tf.nn.sigmoid(tf.add(tf.matmul(a1, w2), b2))
     # error and backprop
-    loss = tf.subtract(output, a_2)
+    loss = tf.losses.mean_squared_error(output, a2)
+    # regularization
+    reg1w = tf.nn.l2_loss(w1) * beta
+    reg1b = tf.nn.l2_loss(b1) * beta
+    reg2w = tf.nn.l2_loss(w2) * beta
+    reg2b = tf.nn.l2_loss(b2) * beta
+    totalreg = reg1w + reg1b + reg2w + reg2b
+    loss = tf.reduce_mean(loss + totalreg)
     step = tf.train.GradientDescentOptimizer(lr).minimize(loss)
 
 with tf.Session(graph=graph) as sess:
     sess.run(tf.global_variables_initializer())
+    tf.summary.scalar('sse', loss)
+    merged = tf.summary.merge_all()
     # useful for visualization
     writer = tf.summary.FileWriter("output", sess.graph)
     # training
     for i in range(epoch):
-        _ = sess.run(step)
+        summ, _ = sess.run([merged, step])
+        error = sess.run(loss)
+        writer.add_summary(summ, i)
     writer.close()
-    # ancora non ho capito bene qui, error da risultati strani
-    # ammà chiedere a federico
-    error = sess.run(loss)
-    result = a_2.eval()
-
-plt.plot(y)
-plt.plot(error)
