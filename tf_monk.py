@@ -8,15 +8,17 @@ inputlayer_neurons = int(X.shape[1])
 hiddenlayer_neurons = 5
 output_neurons = 1
 epoch = 2000
-lr = 3.5
+lr = 3
 beta = 0.001
 
 graph = tf.Graph()
 with graph.as_default():
     # input
-    a0 = tf.constant(X)
+    # a0 = tf.constant(X)
+    a0 = tf.placeholder(tf.float32, X.shape)
     # output
-    output = tf.constant(y)
+    # output = tf.constant(y)
+    output = tf.placeholder(tf.float32, y.shape)
     # weight and bias initialization
     # hidden layer
     w1 = tf.Variable(tf.random_uniform([inputlayer_neurons, hiddenlayer_neurons], dtype=tf.float32))
@@ -37,16 +39,28 @@ with graph.as_default():
     totalreg = reg1w + reg1b + reg2w + reg2b
     loss = tf.reduce_mean(loss + totalreg)
     step = tf.train.GradientDescentOptimizer(lr).minimize(loss)
+    accuracy = 1 - loss
 
 with tf.Session(graph=graph) as sess:
     sess.run(tf.global_variables_initializer())
-    tf.summary.scalar('sse', loss)
-    merged = tf.summary.merge_all()
     # useful for visualization
-    writer = tf.summary.FileWriter("output", sess.graph)
+    summ_tr = tf.summary.scalar('sse', loss)
+    merged_train = tf.summary.merge([summ_tr])
+    summ_ts = tf.summary.scalar('accuracy', accuracy)
+    merged_test = tf.summary.merge([summ_ts])
+    writer_train = tf.summary.FileWriter("output/train/", sess.graph)
+    writer_test = tf.summary.FileWriter("output/test/", sess.graph)
     # training
     for i in range(epoch):
-        summ, _ = sess.run([merged, step])
-        error = sess.run(loss)
-        writer.add_summary(summ, i)
-    writer.close()
+        summ, _ = sess.run([merged_train, step], feed_dict={a0: X, output: y})
+        writer_train.add_summary(summ, i)
+        if i % 100 == 0:
+            test = np.loadtxt('./monk/monks-1.test', dtype='string', delimiter=' ')
+            testX, testY = prep_data(test)
+            testX = norm_data(testX)
+            testX = testX[:X.shape[0]]
+            testY = testY[:y.shape[0]]
+            summ, _ = sess.run([merged_test, step], feed_dict={a0: testX, output: testY})
+            writer_test.add_summary(summ, i)
+    writer_test.close()
+    writer_train.close()
