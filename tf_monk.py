@@ -8,7 +8,7 @@ inputlayer_neurons = int(X.shape[1])
 hiddenlayer_neurons = 5
 output_neurons = 1
 epoch = 2000
-lr = 3
+lr = 0.1 # 0<eta<1 !!!
 beta = 0.001
 
 graph = tf.Graph()
