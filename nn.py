@@ -1,6 +1,6 @@
 from utils import *
 
-def nn(X, y, hl_u=5, lr=0.1, beta=0.001, fit=False, epoch=1000):
+def nn(X, y, hl_u=5, lr=0.1, beta=0.001, fit=False, epoch=100):
     # settings
     inputlayer_neurons = int(X.shape[1])
     hiddenlayer_neurons = hl_u
@@ -26,6 +26,7 @@ def nn(X, y, hl_u=5, lr=0.1, beta=0.001, fit=False, epoch=1000):
         # putting together
         a1 = tf.nn.sigmoid(tf.add(tf.matmul(a0, w1), b1), name='hidden_l')
         a2 = tf.nn.sigmoid(tf.add(tf.matmul(a1, w2), b2), name='output_l')
+        preds = tf.round(a2)
         # error and backprop
         loss = tf.losses.mean_squared_error(output, a2)
         # regularization
@@ -35,11 +36,12 @@ def nn(X, y, hl_u=5, lr=0.1, beta=0.001, fit=False, epoch=1000):
         reg2b = tf.nn.l2_loss(b2) * beta_nn
         with tf.name_scope('reg'):
             totalreg = reg1w + reg1b + reg2w + reg2b
-        loss = tf.reduce_mean(loss + totalreg, name='loss')
+        loss = tf.add(loss, totalreg, name='loss')
         with tf.name_scope('step'):
             step = tf.train.GradientDescentOptimizer(lr_nn).minimize(loss)
-        with tf.name_scope('accuracy'):
-            accuracy = 1 - loss
+        with tf.name_scope('accuracy_ev'):
+            corrects = tf.equal(preds, output)
+            accuracy = tf.reduce_mean(tf.cast(corrects, 'float32'))
         # useful for visualization
         summ_tr = tf.summary.scalar('sse', loss)
         merged_train = tf.summary.merge([summ_tr], name='mtr')
@@ -48,15 +50,18 @@ def nn(X, y, hl_u=5, lr=0.1, beta=0.001, fit=False, epoch=1000):
     if fit:
         with tf.Session(graph=graph) as sess:
             sess.run(tf.global_variables_initializer())
-            writer_train = tf.summary.FileWriter("output/train/lr" + str(lr), sess.graph)
-            writer_test = tf.summary.FileWriter("output/test/lr" + str(lr), sess.graph)
+            str_tr = "output/train/lr" + str(lr) + "b" + str(beta) + "hl" + str(hl_u) + "ep" + str(epoch)
+            str_te = "output/test/lr" + str(lr) + "b" + str(beta) + "hl" + str(hl_u) + "ep" + str(epoch)
+            writer_train = tf.summary.FileWriter(str_tr, sess.graph)
+            writer_test = tf.summary.FileWriter(str_te, sess.graph)
             # training
             for i in range(epoch):
-                summ, _ = sess.run([merged_train, step], feed_dict={a0: X, output: y})
-                writer_train.add_summary(summ, i)
-                if i % 100 == 0:
+                sess.run(step, feed_dict={a0: X, output: y})
+                if i % 10 == 0:
+                    summ = sess.run(merged_train, feed_dict={a0: X, output: y})
+                    writer_train.add_summary(summ, i)
                     testX, testY = test_data(X.shape, y.shape)
-                    summ, _ = sess.run([merged_test, step], feed_dict={a0: testX, output: testY})
+                    corr, summ = sess.run([accuracy, merged_test], feed_dict={a0: testX, output: testY})
                     writer_test.add_summary(summ, i)
             writer_test.close()
             writer_train.close()
