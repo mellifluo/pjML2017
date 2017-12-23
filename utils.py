@@ -6,6 +6,9 @@ import os, shutil
 
 
 def norm_data(X):
+    """
+    returns normalized data on attribute's values 0 or 1
+    """
     for j in range(X.shape[1]):
         newj = int(X.shape[1] + len(np.unique(X[:,j])) - 1)
         newcols = np.zeros((X.shape[0], abs(newj-X.shape[1])))
@@ -17,6 +20,9 @@ def norm_data(X):
     return X
 
 def prep_data(X):
+    """
+    split label set and attribute set and returns them
+    """
     # label data
     y = X[:,1].astype('float32')
     y = y[..., np.newaxis]
@@ -25,19 +31,23 @@ def prep_data(X):
     return X, y
 
 def test_data(shapeX, shapeY):
+    """
+    returns a test set (split on attributes and labels)
+    """
     test = np.loadtxt('./monk/monks-1.test', dtype='string', delimiter=' ')
     testX, testY = prep_data(test)
     testX = norm_data(testX)
-    testX = testX[:shapeX[0]]
-    testY = testY[:shapeY[0]]
     return testX, testY
 
 def init():
+    """
+    prepare the environment and the data
+    returns the normalized data
+    """
     if os.path.exists('./output'):
         shutil.rmtree('./output')
     # load dataset
     X = np.loadtxt('./monk/monks-1.train', dtype='string', delimiter=' ')
     X, y = prep_data(X)
     X = norm_data(X).astype('float32')
-    X.shape
     return X, y
