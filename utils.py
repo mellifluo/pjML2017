@@ -19,18 +19,32 @@ def norm_data(X):
         X[:,j] = np.array([int(jj == max((X[:,j]))) for jj in X[:,j]])
     return X
 
+def clean_data(X):
+    """
+    deletes the first and the last column of monk (that are useless)
+    """
+    return X[:,1:len(X[1])-1].astype('float32')
+
+def split_classes(X):
+    """
+    returns the feature set and its label set
+    """
+    y = X[:,0].astype('float32')
+    y = y[..., np.newaxis]
+    X = X[:,1:]
+    return X, y
+
 def prep_data(X):
     """
     split label set and attribute set and returns them
     """
-    # label data
-    y = X[:,1].astype('float32')
-    y = y[..., np.newaxis]
     # input data
-    X = X[:,2:-1].astype('float32')
+    X = clean_data(X)
+    # label data
+    X, y = split_classes(X)
     return X, y
 
-def test_data(shapeX, shapeY):
+def test_data():
     """
     returns a test set (split on attributes and labels)
     """
