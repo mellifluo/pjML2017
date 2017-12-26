@@ -1,13 +1,13 @@
 from utils import *
 from validation import *
 
-def nn(X, hl_u=5, lr=0.1, beta=0.001, fit=True, epoch=100, tanh=True, addstr='', cv=3):
+def nn(X, hl_u=5, lr=0.1, mom=0.9, alpha=0, fit=True, epoch=100, tanh=True, addstr='', cv=3):
     """
     This function creates a model depending on arguments:
         X: dataset
         hl_u: number of hidden layer units
         lr: learning rate (eta)
-        beta: regularization term
+        alpha: regularization term
         fit: boolean value concerning fitting the model or not
         epoch: how many epochs in the training phase
         tanh: using or not tanh as activation function (instead of sigmoid)
@@ -31,7 +31,7 @@ def nn(X, hl_u=5, lr=0.1, beta=0.001, fit=True, epoch=100, tanh=True, addstr='',
     hiddenlayer_neurons = hl_u
     output_neurons = 1
     lr_nn = lr # 0<eta<1
-    beta_nn = beta
+    alpha_nn = alpha
 
     graph = tf.Graph()
     with graph.as_default():
@@ -58,15 +58,15 @@ def nn(X, hl_u=5, lr=0.1, beta=0.001, fit=True, epoch=100, tanh=True, addstr='',
         # error and backprop
         loss = tf.losses.mean_squared_error(output, a2)
         # regularization
-        reg1w = tf.nn.l2_loss(w1) * beta_nn
-        reg1b = tf.nn.l2_loss(b1) * beta_nn
-        reg2w = tf.nn.l2_loss(w2) * beta_nn
-        reg2b = tf.nn.l2_loss(b2) * beta_nn
+        reg1w = tf.nn.l2_loss(w1) * alpha_nn
+        reg1b = tf.nn.l2_loss(b1) * alpha_nn
+        reg2w = tf.nn.l2_loss(w2) * alpha_nn
+        reg2b = tf.nn.l2_loss(b2) * alpha_nn
         with tf.name_scope('reg'):
             totalreg = reg1w + reg1b + reg2w + reg2b
-        loss = tf.add(loss, totalreg, name='loss')
+        loss2 = tf.add(loss, totalreg, name='loss')
         with tf.name_scope('step'):
-            step = tf.train.GradientDescentOptimizer(lr_nn).minimize(loss)
+            step = tf.train.MomentumOptimizer(lr_nn, momentum=mom, use_nesterov=True).minimize(loss2)
         with tf.name_scope('accuracy_ev'):
             if tanh:
                 corrects_plus1 = tf.add(a2,1)
@@ -91,9 +91,9 @@ def nn(X, hl_u=5, lr=0.1, beta=0.001, fit=True, epoch=100, tanh=True, addstr='',
                 sess.run(tf.global_variables_initializer())
                 addstr = "val" + str(jj)
                 # logs for tensorboard
-                str_tr = "output/train/lr" + str(lr) + "b" + str(beta) + "hl" + str(hl_u) + "ep" + str(epoch) + str(addstr)
-                str_vl = "output/val/lr" + str(lr) + "b" + str(beta) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
-                str_te = "output/test/lr" + str(lr) + "b" + str(beta) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
+                str_tr = "output/train/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u) + "ep" + str(epoch) + str(addstr)
+                str_vl = "output/val/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
+                str_te = "output/test/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
                 writer_train = tf.summary.FileWriter(str_tr, sess.graph)
                 writer_vl = tf.summary.FileWriter(str_vl, sess.graph)
                 writer_test = tf.summary.FileWriter(str_te, sess.graph)
@@ -120,3 +120,9 @@ def nn(X, hl_u=5, lr=0.1, beta=0.001, fit=True, epoch=100, tanh=True, addstr='',
                 three_switch(testY,y,valY)
     else:
         return graph
+
+"""
+togli il commento qui per provare direttamente da sto file
+X, y = init()
+nn(X, lr=0.5, epoch=200)
+"""
