@@ -30,8 +30,8 @@ def cross_validation2(k, dataset=1):
     test, y = prep_data(test)
     test = norm_data(test)
     l = len(test)
-    indexes = np.array([])
-    indexes = np.append(indexes,0).astype(np.int64)
+    indexes = np.array([]).astype(np.int64)
+    indexes = np.append(indexes,0)
     for i in range(1,k+1):
-        indexes = np.append(indexes,l*i/k).astype(np.int64)
+        indexes = np.append(indexes,l*i//k)
     return indexes

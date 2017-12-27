@@ -44,16 +44,16 @@ def prep_data(X):
     X, y = split_classes(X)
     return X, y
 
-def test_data():
+def test_data(d=1):
     """
     returns a test set (split on attributes and labels)
     """
-    test = np.loadtxt('./monk/monks-1.test', dtype='string', delimiter=' ')
+    test = np.loadtxt('./monk/monks-'+str(d)+'.test', dtype='string', delimiter=' ')
     testX, testY = prep_data(test)
     testX = norm_data(testX)
     return testX, testY
 
-def init():
+def init(d=1):
     """
     prepare the environment and the data
     returns the normalized data
@@ -61,7 +61,7 @@ def init():
     if os.path.exists('./output'):
         shutil.rmtree('./output')
     # load dataset
-    X = np.loadtxt('./monk/monks-1.train', dtype='string', delimiter=' ')
+    X = np.loadtxt('./monk/monks-'+str(d)+'.train', dtype='string', delimiter=' ')
     X, y = prep_data(X)
     X = norm_data(X).astype('float32')
     return X, y
