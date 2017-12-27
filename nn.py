@@ -24,22 +24,34 @@ def nn(X, hl_u=5, lr=0.1, mom=0.9, alpha=0, fit=True, epoch=100, tanh=True, adds
         valX, valY = split_classes(valX)
         X = X[0,:,:]
         X, y = split_classes(X)
+        if tanh:
+            testY = np.where(testY == 0, -1, testY)
+            valY = np.where(valY == 0, -1, valY)
+            y = np.where(y == 0, -1, y)
     else:
         X, y = init()
+        valX, valY = init()
+        testX, testY = test_data()
+        if tanh:
+            testY = np.where(testY == 0, -1, testY)
+            valY = np.where(valY == 0, -1, valY)
+            y = np.where(y == 0, -1, y)
     # settings
     inputlayer_neurons = int(X.shape[1])
     hiddenlayer_neurons = hl_u
     output_neurons = 1
     lr_nn = lr # 0<eta<1
     alpha_nn = alpha
+    # w1_np = np.random.uniform(size=(inputlayer_neurons, hiddenlayer_neurons))
+    # b1_np = np.random.uniform(size=(hiddenlayer_neurons))
+    # w2_np = np.random.uniform(size=(hiddenlayer_neurons, output_neurons))
+    # b2_np = np.random.uniform(size=(output_neurons))
 
     graph = tf.Graph()
     with graph.as_default():
         # input
-        # a0 = tf.constant(X)
         a0 = tf.placeholder(tf.float32, name='input_l')
         # output
-        # output = tf.constant(y)
         output = tf.placeholder(tf.float32, name='output_l')
         # weight and bias initialization
         # hidden layer
@@ -66,20 +78,22 @@ def nn(X, hl_u=5, lr=0.1, mom=0.9, alpha=0, fit=True, epoch=100, tanh=True, adds
             totalreg = reg1w + reg1b + reg2w + reg2b
         loss2 = tf.add(loss, totalreg, name='loss')
         with tf.name_scope('step'):
-            step = tf.train.MomentumOptimizer(lr_nn, momentum=mom, use_nesterov=True).minimize(loss2)
+            step = tf.train.MomentumOptimizer(lr_nn, momentum=mom).minimize(loss2)
         with tf.name_scope('accuracy_ev'):
             if tanh:
-                corrects_plus1 = tf.add(a2,1)
-                corrects_int = tf.cast(corrects_plus1, tf.int64)
+                # corrects_plus1 = tf.add(a2,0.999999)
+                # corrects_int = tf.cast(corrects_plus1, tf.int64)
+                # cond = tf.greater(a2,tf.zeros_like(a2))
+                # corrects_int = tf.where(cond, tf.ones_like(a2), tf.zeros_like(a2))
+                corrects_int = tf.round(a2)
             else:
                 corrects_int = tf.round(a2)
-                corrects_int = tf.cast(corrects_int, tf.int64)
-            output_int = tf.cast(output, tf.int64)
-            corrects = tf.equal(corrects_int, output_int)
+            corrects = tf.equal(corrects_int, output)
             accuracy = tf.reduce_mean(tf.cast(corrects, 'float32'))
         # useful for visualization
         summ_tr = tf.summary.scalar('sse', loss)
-        merged_train = tf.summary.merge([summ_tr], name='mtr')
+        summ_tr_acc = tf.summary.scalar('acc_train', accuracy)
+        merged_train = tf.summary.merge([summ_tr, summ_tr_acc], name='mtr')
         summ_vl = tf.summary.scalar('error_val', loss)
         merged_val = tf.summary.merge([summ_vl], name='mvl')
         summ_ts = tf.summary.scalar('accuracy', accuracy)
@@ -102,7 +116,7 @@ def nn(X, hl_u=5, lr=0.1, mom=0.9, alpha=0, fit=True, epoch=100, tanh=True, adds
                     _ = sess.run(step, feed_dict={a0: X, output: y})
                     # validation & test
                     if i % 10 == 0:
-                        summ1 = sess.run(merged_train, feed_dict={a0: X, output: y})
+                        acc, summ1 = sess.run([a2, merged_train], feed_dict={a0: X, output: y})
                         writer_train.add_summary(summ1, i)
                         corr, summ2 = sess.run([loss, merged_val], feed_dict={a0: valX, output: valY})
                         corr, summ3 = sess.run([accuracy, merged_test], feed_dict={a0: testX, output: testY})
@@ -121,8 +135,5 @@ def nn(X, hl_u=5, lr=0.1, mom=0.9, alpha=0, fit=True, epoch=100, tanh=True, adds
     else:
         return graph
 
-"""
-togli il commento qui per provare direttamente da sto file
 X, y = init()
-nn(X, lr=0.5, epoch=200)
-"""
+nn(X, lr=0.5, cv=None, epoch=100, tanh=True, hl_u=5)

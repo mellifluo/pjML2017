@@ -2,7 +2,7 @@ from utils import *
 
 # funziona solo con k=3 (3-fold)
 def cross_validation(x, k):
-    test = np.loadtxt('./monk/monks-1.test', dtype='string', delimiter=' ')
+    test = np.loadtxt('./monk/monks-1.train', dtype='string', delimiter=' ')
     test = clean_data(test)
     test, y = split_classes(test)
     test = norm_data(test)
@@ -24,3 +24,14 @@ def three_switch(x,y,z):
     y = z
     z = tmp
     return x, y, z
+
+def cross_validation2(k, dataset=1):
+    test = np.loadtxt('./monk/monks-'+str(dataset)+'.train', dtype='string', delimiter=' ')
+    test, y = prep_data(test)
+    test = norm_data(test)
+    l = len(test)
+    indexes = np.array([])
+    indexes = np.append(indexes,0).astype(np.int64)
+    for i in range(1,k+1):
+        indexes = np.append(indexes,l*i/k).astype(np.int64)
+    return indexes
