@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 import os, shutil
-
+os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 
 def norm_data(X):
     """
@@ -53,7 +53,7 @@ def test_data(d=1):
     testX = norm_data(testX)
     return testX, testY
 
-def init(d=1):
+def init(d=1, shuffle=False):
     """
     prepare the environment and the data
     returns the normalized data
@@ -62,6 +62,8 @@ def init(d=1):
         shutil.rmtree('./output')
     # load dataset
     X = np.loadtxt('./monk/monks-'+str(d)+'.train', dtype='string', delimiter=' ')
+    if shuffle:
+        np.random.shuffle(X)
     X, y = prep_data(X)
     X = norm_data(X).astype('float32')
     return X, y

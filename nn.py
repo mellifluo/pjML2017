@@ -74,7 +74,12 @@ def nn(df,lab, d, hl_u=5, lr=0.1, mom=0.9, alpha=0, fit=True, epoch=100, tanh=Tr
         with tf.name_scope('step'):
             step = tf.train.MomentumOptimizer(lr_nn, momentum=mom).minimize(loss2)
         with tf.name_scope('accuracy_ev'):
-            corrects_int = tf.round(a2)
+            if tanh:
+                cond = tf.greater_equal(a2,tf.zeros_like(a2))
+                minus_one = tf.zeros_like(a2) - 1
+                corrects_int = tf.where(cond, tf.ones_like(a2), minus_one)
+            else:
+                corrects_int = tf.round(a2)
             corrects = tf.equal(corrects_int, output)
             accuracy = tf.reduce_mean(tf.cast(corrects, 'float32'))
         # useful for visualization
@@ -88,13 +93,10 @@ def nn(df,lab, d, hl_u=5, lr=0.1, mom=0.9, alpha=0, fit=True, epoch=100, tanh=Tr
         merged_test = tf.summary.merge([summ_ts], name='mte')
     if fit:
         if not cv: cv = 1
-        # qui c'è la parte nuova
-        #capito
         for jj in range(cv):
             if cv != 1:
                 maskX = np.ones(len(df), dtype=bool)
                 maskY = np.ones(len(lab), dtype=bool)
-                # fare stessa cosa per y
                 if idxs[jj]:
                     valX = df[idxs[jj]+1:idxs[jj+1]]
                     maskX[idxs[jj]+1:idxs[jj+1]] = False
@@ -107,13 +109,6 @@ def nn(df,lab, d, hl_u=5, lr=0.1, mom=0.9, alpha=0, fit=True, epoch=100, tanh=Tr
                     maskY[idxs[jj]:idxs[jj+1]] = False
                 X = df[maskX, :]
                 y = lab[maskY, :]
-                pX = np.zeros(shape=(cv-1,valX.shape[0],valX.shape[1]))
-                pY = np.zeros(shape=(cv-1,valY.shape[0],valY.shape[1]))
-                for subparts in range(cv-1):
-                    pX[subparts,:,:] = X[:len(valX),:]
-                    X = X[len(valX):,:]
-                    pY[subparts,:,:] = y[:len(valY),:]
-                    y = y[len(valY):,:]
             with tf.Session(graph=graph) as sess:
                 sess.run(tf.global_variables_initializer())
                 addstr = "val" + str(jj)
@@ -127,26 +122,22 @@ def nn(df,lab, d, hl_u=5, lr=0.1, mom=0.9, alpha=0, fit=True, epoch=100, tanh=Tr
                 writer_test = tf.summary.FileWriter(str_te, sess.graph)
                 # training
                 for i in range(epoch):
-                    if cv != 1:
-                        for subparts in range(cv-1):
-                            _ = sess.run(step, feed_dict={a0: pX[subparts], output: pY[subparts]})
-                        summ1 = sess.run(merged_train, feed_dict={a0: pX[subparts], output: pY[subparts]})
-                        writer_train.add_summary(summ1, i)
-                    else:
-                        _, summ1 = sess.run([step, merged_train], feed_dict={a0: X, output: y})
-                        writer_train.add_summary(summ1, i)
+                    corr,_, summ1 = sess.run([corrects_int,step, merged_train], feed_dict={a0: X, output: y})
+                    writer_train.add_summary(summ1, i)
                     # validation & test
-                    if i % 10 == 0:
-                        summ2 = sess.run(merged_val, feed_dict={a0: valX, output: valY})
-                        summ3 = sess.run(merged_test, feed_dict={a0: testX, output: testY})
-                        writer_vl.add_summary(summ2, i)
-                        writer_test.add_summary(summ3, i)
+                    summ2 = sess.run(merged_val, feed_dict={a0: valX, output: valY})
+                    summ3 = sess.run(merged_test, feed_dict={a0: testX, output: testY})
+                    writer_vl.add_summary(summ2, i)
+                    writer_test.add_summary(summ3, i)
+                print "lr="+str(lr), "hl="+str(hl_u)
+                print "acc_val:", sess.run(accuracy, feed_dict={a0: valX, output: valY})
+                print "acc_test:", sess.run(accuracy, feed_dict={a0: testX, output: testY})
                 writer_test.close()
                 writer_vl.close()
                 writer_train.close()
                 sess.close()
     else:
         return graph
-d=1
-X, y = init(d)
-nn(X, y, d, lr=0.5, epoch=500, tanh=True, hl_u=10, cv=None)
+# d=1
+# X, y = init(1, shuffle=True)
+# nn(X, y, d, lr=0.5, epoch=200, tanh=True, hl_u=5, cv=5)
