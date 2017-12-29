@@ -1,19 +1,19 @@
 from utils import *
 from validation import *
 
-def nn(df,lab, d, hl_u=5, lr=0.1, mom=0.9, alpha=0, fit=True, epoch=100, tanh=True, addstr='', cv=3):
+def nn(df,lab, d, stoc=False, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, cv=3):
     """
     This function creates a model depending on arguments:
         df: feature set
         lab: label set
         d: dataset (monk1,2,3,4,cup)
+        stoc: using stochastic batch
         hl_u: number of hidden layer units
         lr: learning rate (eta)
         alpha: regularization term
         fit: boolean value concerning fitting the model or not
         epoch: how many epochs in the training phase
         tanh: using or not tanh as activation function (instead of sigmoid)
-        addstr: string to add in tensorboard files
         cv: cross-validation parameter
     Returns the graph of the model or writes the tensorboard's files in the
     folder './output'
@@ -39,7 +39,7 @@ def nn(df,lab, d, hl_u=5, lr=0.1, mom=0.9, alpha=0, fit=True, epoch=100, tanh=Tr
     output_neurons = 1
     lr_nn = lr # 0<eta<1
     alpha_nn = alpha
-
+    cv_all = []
     graph = tf.Graph()
     with graph.as_default():
         # input
@@ -48,10 +48,12 @@ def nn(df,lab, d, hl_u=5, lr=0.1, mom=0.9, alpha=0, fit=True, epoch=100, tanh=Tr
         output = tf.placeholder(tf.float32, name='output_l')
         # weight and bias initialization
         # hidden layer
-        w1 = tf.Variable(tf.random_normal([inputlayer_neurons, hiddenlayer_neurons], dtype=tf.float32, name='w_hidden_l'))
-        b1 = tf.Variable(tf.random_normal([hiddenlayer_neurons] , dtype=tf.float32, name='wb_hidden_l'))
+        w1 = tf.Variable(tf.random_normal([inputlayer_neurons, hiddenlayer_neurons], stddev=1, seed=1, dtype=tf.float32, name='w_hidden_l'))
+        # w1 = (w1*2)/inputlayer_neurons
+        b1 = tf.Variable(tf.random_normal([hiddenlayer_neurons], dtype=tf.float32, name='wb_hidden_l'))
         # output layer
-        w2 = tf.Variable(tf.random_normal([hiddenlayer_neurons, output_neurons], dtype=tf.float32, name='w_output_l'))
+        w2 = tf.Variable(tf.random_normal([hiddenlayer_neurons, output_neurons], stddev=1, seed=2, dtype=tf.float32, name='w_output_l'))
+        # w2 = (w2*2)/inputlayer_neurons
         b2 = tf.Variable(tf.random_normal([output_neurons], dtype=tf.float32, name='wb_output_l'))
         # putting together
         if tanh:
@@ -72,7 +74,7 @@ def nn(df,lab, d, hl_u=5, lr=0.1, mom=0.9, alpha=0, fit=True, epoch=100, tanh=Tr
         with tf.name_scope('loss'):
             loss2 = loss + totalreg
         with tf.name_scope('step'):
-            step = tf.train.MomentumOptimizer(lr_nn, momentum=mom).minimize(loss2)
+            step = tf.train.MomentumOptimizer(lr_nn, momentum=mom, use_nesterov=False).minimize(loss2)
         with tf.name_scope('accuracy_ev'):
             if tanh:
                 cond = tf.greater_equal(a2,tf.zeros_like(a2))
@@ -91,7 +93,9 @@ def nn(df,lab, d, hl_u=5, lr=0.1, mom=0.9, alpha=0, fit=True, epoch=100, tanh=Tr
         merged_val = tf.summary.merge([summ_vl, summ_vl_acc], name='mvl')
         summ_ts = tf.summary.scalar('accuracy', accuracy)
         merged_test = tf.summary.merge([summ_ts], name='mte')
-    if fit:
+        acc_val = 0
+        acc_test = 0
+        cvscores = []
         if not cv: cv = 1
         for jj in range(cv):
             if cv != 1:
@@ -113,31 +117,47 @@ def nn(df,lab, d, hl_u=5, lr=0.1, mom=0.9, alpha=0, fit=True, epoch=100, tanh=Tr
                 sess.run(tf.global_variables_initializer())
                 addstr = "val" + str(jj)
                 if cv != 1: print addstr, idxs[jj], idxs[jj+1]
-                # logs for tensorboard
-                str_tr = "output/train/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u) + "ep" + str(epoch) + str(addstr)
-                str_vl = "output/val/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
-                str_te = "output/test/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
-                writer_train = tf.summary.FileWriter(str_tr, sess.graph)
-                writer_vl = tf.summary.FileWriter(str_vl, sess.graph)
-                writer_test = tf.summary.FileWriter(str_te, sess.graph)
+                if not stoc:
+                    # logs for tensorboard
+                    str_tr = "output/train/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u) + "ep" + str(epoch) + str(addstr)
+                    str_vl = "output/val/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
+                    str_te = "output/test/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
+                    writer_train = tf.summary.FileWriter(str_tr, sess.graph)
+                    writer_vl = tf.summary.FileWriter(str_vl, sess.graph)
+                    writer_test = tf.summary.FileWriter(str_te, sess.graph)
                 # training
+                coord = tf.train.Coordinator()
+                threads = tf.train.start_queue_runners(coord=coord)
                 for i in range(epoch):
-                    corr,_, summ1 = sess.run([corrects_int,step, merged_train], feed_dict={a0: X, output: y})
-                    writer_train.add_summary(summ1, i)
+                    if stoc:
+                        for p in range(len(X)):
+                            xp = X[p][np.newaxis, ...]
+                            yp = y[p][np.newaxis, ...]
+                            _, summ1 = sess.run([step, merged_train], feed_dict={a0: xp, output: yp})
+                        if not stoc: writer_train.add_summary(summ1, i)
+                    else:
+                        _, summ1 = sess.run([step, merged_train], feed_dict={a0: X, output: y})
+                        writer_train.add_summary(summ1, i)
                     # validation & test
-                    summ2 = sess.run(merged_val, feed_dict={a0: valX, output: valY})
-                    summ3 = sess.run(merged_test, feed_dict={a0: testX, output: testY})
-                    writer_vl.add_summary(summ2, i)
-                    writer_test.add_summary(summ3, i)
-                print "lr="+str(lr), "hl="+str(hl_u)
-                print "acc_val:", sess.run(accuracy, feed_dict={a0: valX, output: valY})
-                print "acc_test:", sess.run(accuracy, feed_dict={a0: testX, output: testY})
-                writer_test.close()
-                writer_vl.close()
-                writer_train.close()
+                    acc_val, summ2 = sess.run([accuracy,merged_val], feed_dict={a0: valX, output: valY})
+                    acc_test, summ3 = sess.run([accuracy,merged_test], feed_dict={a0: testX, output: testY})
+                    if not stoc:
+                        writer_vl.add_summary(summ2, i)
+                        writer_test.add_summary(summ3, i)
+                acc_val = acc_val * 100
+                acc_test = acc_test * 100
+                cvscores.append(acc_val)
+                print "acc_val: %.2f%%" % acc_val
+                print "acc_test: %.2f%%" % acc_test
+                print " "
+                if not stoc:
+                    writer_test.close()
+                    writer_vl.close()
+                    writer_train.close()
+                coord.request_stop()
+                coord.join(threads)
                 sess.close()
-    else:
-        return graph
-# d=1
-# X, y = init(1, shuffle=True)
-# nn(X, y, d, lr=0.5, epoch=200, tanh=True, hl_u=5, cv=5)
+        print "CV", "lr="+str(lr), "hl="+str(hl_u)
+        print "%.2f%% (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores))
+        print " "
+        return [np.mean(cvscores), np.std(cvscores), lr, hl_u]

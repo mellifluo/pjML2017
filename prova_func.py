@@ -1,27 +1,23 @@
+from utils import *
 from nn import *
 
 """
 file per fare tutte 'e prov e ripigliare tutt' chell che e nuost
 """
 d=1
-X, y = init()
+X, y = init(d, shuffle=True)
+hls = [5,10,15]
+lrs = [0.01,0.05,0.1]
 
 # questo se vuoi fare piu prove contemporaneamente (occhio che puo venire un macello)
-for hl in range(1,11):
-    if hl == 3 or hl == 5 or hl == 10:
-        for eta in np.arange(0.1,1,0.3):
-            nn(X,y, d, lr=eta, hl_u=hl, fit=True, epoch=500, tanh=True, cv=3)
+cvs = []
+for hl in hls:
+    for lr in lrs:
+        cvs.append(nn(X, y, d, lr=lr, hl_u=hl, stoc=True, epoch=500, tanh=True, alpha=0.0001, cv=3))
+# forse basta il massimo dell acc_val
+m = max([b[0] for b in cvs])
+best = next((x for x in cvs if m == x[0]), None)
 
-# basta questo (aggiungendo i parametri che vuoi)
-# nn(X, epoch=500)
-
-"""
-9. Target Concepts associated to the MONK's problem:
-
-   MONK-1: (a1 = a2) or (a5 = 1)
-
-   MONK-2: EXACTLY TWO of {a1 = 1, a2 = 1, a3 = 1, a4 = 1, a5 = 1, a6 = 1}
-
-   MONK-3: (a5 = 3 and a4 = 1) or (a5 /= 4 and a2 /= 3)
-           (5percent class noise added to the training set)
-"""
+print "-------------"
+print "Best with lr=%.2f and %d hidden layer units:" % (best[2], best[3])
+print "%.1f%% (+/- %.1f%%)" % (best[0], best[1])
