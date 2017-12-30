@@ -1,13 +1,13 @@
 from utils import *
 from validation import *
 
-def nn(df,lab, d, stoc=False, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, cv=3):
+def nn(df,lab, d, bs=None, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, cv=3):
     """
     This function creates a model depending on arguments:
         df: feature set
         lab: label set
         d: dataset (monk1,2,3,4,cup)
-        stoc: using stochastic batch
+        bs: batch size (if None, full batch)
         hl_u: number of hidden layer units
         lr: learning rate (eta)
         alpha: regularization term
@@ -49,12 +49,12 @@ def nn(df,lab, d, stoc=False, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=
         # weight and bias initialization
         # hidden layer
         w1 = tf.Variable(tf.random_normal([inputlayer_neurons, hiddenlayer_neurons], stddev=1, seed=1, dtype=tf.float32, name='w_hidden_l'))
-        # w1 = (w1*2)/inputlayer_neurons
         b1 = tf.Variable(tf.random_normal([hiddenlayer_neurons], dtype=tf.float32, name='wb_hidden_l'))
         # output layer
         w2 = tf.Variable(tf.random_normal([hiddenlayer_neurons, output_neurons], stddev=1, seed=2, dtype=tf.float32, name='w_output_l'))
-        # w2 = (w2*2)/inputlayer_neurons
         b2 = tf.Variable(tf.random_normal([output_neurons], dtype=tf.float32, name='wb_output_l'))
+        # w1 = (w1*2)/inputlayer_neurons
+        # w2 = (w2*2)/inputlayer_neurons
         # putting together
         if tanh:
             a1 = tf.nn.tanh(tf.nn.bias_add(tf.matmul(a0, w1), b1), name='hidden_l')
@@ -74,7 +74,7 @@ def nn(df,lab, d, stoc=False, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=
         with tf.name_scope('loss'):
             loss2 = loss + totalreg
         with tf.name_scope('step'):
-            step = tf.train.MomentumOptimizer(lr_nn, momentum=mom, use_nesterov=False).minimize(loss2)
+            step = tf.train.MomentumOptimizer(lr_nn, momentum=mom, use_nesterov=True).minimize(loss2)
         with tf.name_scope('accuracy_ev'):
             if tanh:
                 cond = tf.greater_equal(a2,tf.zeros_like(a2))
@@ -115,47 +115,42 @@ def nn(df,lab, d, stoc=False, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=
                 y = lab[maskY, :]
             with tf.Session(graph=graph) as sess:
                 sess.run(tf.global_variables_initializer())
+                print "lr="+str(lr), "hl="+str(hl_u)
                 addstr = "val" + str(jj)
                 if cv != 1: print addstr, idxs[jj], idxs[jj+1]
-                if not stoc:
-                    # logs for tensorboard
-                    str_tr = "output/train/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u) + "ep" + str(epoch) + str(addstr)
-                    str_vl = "output/val/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
-                    str_te = "output/test/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
-                    writer_train = tf.summary.FileWriter(str_tr, sess.graph)
-                    writer_vl = tf.summary.FileWriter(str_vl, sess.graph)
-                    writer_test = tf.summary.FileWriter(str_te, sess.graph)
+                # logs for tensorboard
+                str_tr = "output/train/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u) + "ep" + str(epoch) + str(addstr)
+                str_vl = "output/val/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
+                str_te = "output/test/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
+                writer_train = tf.summary.FileWriter(str_tr, sess.graph)
+                writer_vl = tf.summary.FileWriter(str_vl, sess.graph)
+                writer_test = tf.summary.FileWriter(str_te, sess.graph)
                 # training
-                coord = tf.train.Coordinator()
-                threads = tf.train.start_queue_runners(coord=coord)
                 for i in range(epoch):
-                    if stoc:
-                        for p in range(len(X)):
-                            xp = X[p][np.newaxis, ...]
-                            yp = y[p][np.newaxis, ...]
+                    if bs:
+                        idx = np.random.randint(X.shape[0], size=bs)
+                        xp = np.matrix(X[idx,:])
+                        yp = np.matrix(y[idx,:])
+                        for steps in range(int(X.shape[0]/bs)):
                             _, summ1 = sess.run([step, merged_train], feed_dict={a0: xp, output: yp})
-                        if not stoc: writer_train.add_summary(summ1, i)
+                        # writer_train.add_summary(summ1, i)
                     else:
                         _, summ1 = sess.run([step, merged_train], feed_dict={a0: X, output: y})
                         writer_train.add_summary(summ1, i)
                     # validation & test
                     acc_val, summ2 = sess.run([accuracy,merged_val], feed_dict={a0: valX, output: valY})
                     acc_test, summ3 = sess.run([accuracy,merged_test], feed_dict={a0: testX, output: testY})
-                    if not stoc:
-                        writer_vl.add_summary(summ2, i)
-                        writer_test.add_summary(summ3, i)
+                    # writer_vl.add_summary(summ2, i)
+                    # writer_test.add_summary(summ3, i)
                 acc_val = acc_val * 100
                 acc_test = acc_test * 100
                 cvscores.append(acc_val)
                 print "acc_val: %.2f%%" % acc_val
                 print "acc_test: %.2f%%" % acc_test
                 print " "
-                if not stoc:
-                    writer_test.close()
-                    writer_vl.close()
-                    writer_train.close()
-                coord.request_stop()
-                coord.join(threads)
+                writer_test.close()
+                writer_vl.close()
+                writer_train.close()
                 sess.close()
         print "CV", "lr="+str(lr), "hl="+str(hl_u)
         print "%.2f%% (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores))

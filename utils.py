@@ -53,7 +53,7 @@ def test_data(d=1):
     testX = norm_data(testX)
     return testX, testY
 
-def init(d=1, shuffle=False):
+def init(d=1, shuffle=True):
     """
     prepare the environment and the data
     returns the normalized data

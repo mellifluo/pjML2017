@@ -73,7 +73,7 @@ for hl in hls:
         cvscores = []
         for train, test in kfold.split(X, y):
         	# Fit the model
-        	model.fit(X[train], y[train], epochs=500, verbose=0)
+        	model.fit(X[train], y[train], epochs=250, verbose=0, shuffle=False)
         	# evaluate the model
         	scores = model.evaluate(X[test], y[test], verbose=0)
         	print("%s: %.2f%%" % (model.metrics_names[1], scores[1]*100))
