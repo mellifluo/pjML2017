@@ -1,12 +1,12 @@
 from utils import *
 from validation import *
+def mean_euc_dist(y_true, y_pred):
+    return tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(y_true - y_pred), axis=0, keep_dims=True)))
 
-def nn(df,lab, d, bs=None, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, cv=3):
+def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=False, cv=3):
     """
     This function creates a model depending on arguments:
-        df: feature set
-        lab: label set
-        d: dataset (monk1,2,3,4,cup)
+        d: dataset (monk1,2,3 or 4 cup)
         bs: batch size (if None, full batch)
         hl_u: number of hidden layer units
         lr: learning rate (eta)
@@ -18,25 +18,28 @@ def nn(df,lab, d, bs=None, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=Tru
     Returns the graph of the model or writes the tensorboard's files in the
     folder './output'
     """
+    df, lab = init(d)
+    if d == 4:
+        testX, testY = test_data(d)
+        tanh = False
+    else: testX, testY = test_data(d)
     if cv:
         idxs = cross_validation2(cv)
-        testX, testY = test_data(d)
-        if tanh:
+        if tanh and d != 4:
             testY = np.where(testY == 0, -1, testY)
             lab = np.where(lab == 0, -1, lab)
     else:
-        X = df
-        y = lab
+        X, y = df, lab
         valX, valY = init(d)
-        testX, testY = test_data(d)
-        if tanh:
+        if tanh and d != 4:
             testY = np.where(testY == 0, -1, testY)
             valY = np.where(valY == 0, -1, valY)
             y = np.where(y == 0, -1, y)
     # settings
     inputlayer_neurons = int(df.shape[1])
     hiddenlayer_neurons = hl_u
-    output_neurons = 1
+    if d == 4: output_neurons = 2
+    else: output_neurons = 1
     lr_nn = lr # 0<eta<1
     alpha_nn = alpha
     cv_all = []
@@ -48,22 +51,26 @@ def nn(df,lab, d, bs=None, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=Tru
         output = tf.placeholder(tf.float32, name='output_l')
         # weight and bias initialization
         # hidden layer
-        w1 = tf.Variable(tf.random_normal([inputlayer_neurons, hiddenlayer_neurons], stddev=1, seed=1, dtype=tf.float32, name='w_hidden_l'))
-        b1 = tf.Variable(tf.random_normal([hiddenlayer_neurons], dtype=tf.float32, name='wb_hidden_l'))
+        w1 = tf.Variable(tf.random_uniform([inputlayer_neurons, hiddenlayer_neurons], dtype=tf.float32, name='w_hidden_l'))
+        b1 = tf.Variable(tf.random_uniform([hiddenlayer_neurons], dtype=tf.float32, name='wb_hidden_l'))
         # output layer
-        w2 = tf.Variable(tf.random_normal([hiddenlayer_neurons, output_neurons], stddev=1, seed=2, dtype=tf.float32, name='w_output_l'))
-        b2 = tf.Variable(tf.random_normal([output_neurons], dtype=tf.float32, name='wb_output_l'))
+        w2 = tf.Variable(tf.random_uniform([hiddenlayer_neurons, output_neurons], dtype=tf.float32, name='w_output_l'))
+        b2 = tf.Variable(tf.random_uniform([output_neurons], dtype=tf.float32, name='wb_output_l'))
         # w1 = (w1*2)/inputlayer_neurons
         # w2 = (w2*2)/inputlayer_neurons
         # putting together
         if tanh:
             a1 = tf.nn.tanh(tf.nn.bias_add(tf.matmul(a0, w1), b1), name='hidden_l')
             a2 = tf.nn.tanh(tf.nn.bias_add(tf.matmul(a1, w2), b2), name='output_l')
+        elif d == 4:
+            a1 = tf.nn.relu(tf.nn.bias_add(tf.matmul(a0, w1), b1), name='hidden_l')
+            a2 = tf.nn.relu(tf.nn.bias_add(tf.matmul(a1, w2), b2), name='output_l')
         else:
             a1 = tf.nn.sigmoid(tf.nn.bias_add(tf.matmul(a0, w1), b1), name='hidden_l')
             a2 = tf.nn.sigmoid(tf.nn.bias_add(tf.matmul(a1, w2), b2), name='output_l')
         # error and backprop
-        loss = tf.losses.mean_squared_error(output, a2)
+        if d == 4: loss = mean_euc_dist(output,a2)
+        else: loss = tf.losses.mean_squared_error(output, a2)
         # regularization
         reg1w = tf.nn.l2_loss(w1) * alpha_nn
         reg1b = tf.nn.l2_loss(b1) * alpha_nn
@@ -74,14 +81,16 @@ def nn(df,lab, d, bs=None, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=Tru
         with tf.name_scope('loss'):
             loss2 = loss + totalreg
         with tf.name_scope('step'):
-            step = tf.train.MomentumOptimizer(lr_nn, momentum=mom, use_nesterov=True).minimize(loss2)
+            step = tf.train.MomentumOptimizer(lr_nn, momentum=mom, use_nesterov=nest).minimize(loss2)
         with tf.name_scope('accuracy_ev'):
             if tanh:
                 cond = tf.greater_equal(a2,tf.zeros_like(a2))
                 minus_one = tf.zeros_like(a2) - 1
                 corrects_int = tf.where(cond, tf.ones_like(a2), minus_one)
-            else:
+            elif d != 4:
                 corrects_int = tf.round(a2)
+            else:
+                corrects_int = a2
             corrects = tf.equal(corrects_int, output)
             accuracy = tf.reduce_mean(tf.cast(corrects, 'float32'))
         # useful for visualization
@@ -119,9 +128,9 @@ def nn(df,lab, d, bs=None, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=Tru
                 addstr = "val" + str(jj)
                 if cv != 1: print addstr, idxs[jj], idxs[jj+1]
                 # logs for tensorboard
-                str_tr = "output/train/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u) + "ep" + str(epoch) + str(addstr)
-                str_vl = "output/val/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
-                str_te = "output/test/lr" + str(lr) + "b" + str(alpha) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
+                str_tr = "output/train/lr" + str(lr) + "a" + str(alpha) + "hl" + str(hl_u) + "ep" + str(epoch) + str(addstr)
+                str_vl = "output/val/lr" + str(lr) + "a" + str(alpha) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
+                str_te = "output/test/lr" + str(lr) + "a" + str(alpha) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
                 writer_train = tf.summary.FileWriter(str_tr, sess.graph)
                 writer_vl = tf.summary.FileWriter(str_vl, sess.graph)
                 writer_test = tf.summary.FileWriter(str_te, sess.graph)
@@ -133,16 +142,16 @@ def nn(df,lab, d, bs=None, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=Tru
                         yp = np.matrix(y[idx,:])
                         for steps in range(int(X.shape[0]/bs)):
                             _, summ1 = sess.run([step, merged_train], feed_dict={a0: xp, output: yp})
-                        # writer_train.add_summary(summ1, i)
+                        writer_train.add_summary(summ1, i)
                     else:
                         _, summ1 = sess.run([step, merged_train], feed_dict={a0: X, output: y})
                         writer_train.add_summary(summ1, i)
                     # validation & test
-                    acc_val, summ2 = sess.run([accuracy,merged_val], feed_dict={a0: valX, output: valY})
+                    acc_val, summ2 = sess.run([loss,merged_val], feed_dict={a0: valX, output: valY})
                     acc_test, summ3 = sess.run([accuracy,merged_test], feed_dict={a0: testX, output: testY})
-                    # writer_vl.add_summary(summ2, i)
-                    # writer_test.add_summary(summ3, i)
-                acc_val = acc_val * 100
+                    writer_vl.add_summary(summ2, i)
+                    writer_test.add_summary(summ3, i)
+                # acc_val = acc_val * 100
                 acc_test = acc_test * 100
                 cvscores.append(acc_val)
                 print "acc_val: %.2f%%" % acc_val
@@ -156,3 +165,6 @@ def nn(df,lab, d, bs=None, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=Tru
         print "%.2f%% (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores))
         print " "
         return [np.mean(cvscores), np.std(cvscores), lr, hl_u]
+
+
+nn(4, bs=None, epoch=250, hl_u=5, mom=0.9, cv=None, alpha=1e-3)

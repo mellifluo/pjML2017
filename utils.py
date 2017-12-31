@@ -44,16 +44,25 @@ def prep_data(X):
     X, y = split_classes(X)
     return X, y
 
-def test_data(d=1):
+def test_data(d=4):
     """
     returns a test set (split on attributes and labels)
     """
-    test = np.loadtxt('./monk/monks-'+str(d)+'.test', dtype='string', delimiter=' ')
-    testX, testY = prep_data(test)
-    testX = norm_data(testX)
-    return testX, testY
+    if d == 4:
+        testX = np.loadtxt('./cup/ML-CUP17-TS.csv', dtype='float32', delimiter=',')
+        testX = testX[:,1:]
+        testY = np.ones(shape=(testX.shape[0],2))
+        return testX, testY
+    elif d==1 or d==2 or d==3:
+        test = np.loadtxt('./monk/monks-'+str(d)+'.test', dtype='string', delimiter=' ')
+        testX, testY = prep_data(test)
+        testX = norm_data(testX)
+        return testX.astype('float32'), testY.astype('float32')
+    else:
+        print('Error: d must be 1,2,3 or 4.')
+        return None
 
-def init(d=1, shuffle=True):
+def init(d=4, shuffle=True):
     """
     prepare the environment and the data
     returns the normalized data
@@ -61,9 +70,20 @@ def init(d=1, shuffle=True):
     if os.path.exists('./output'):
         shutil.rmtree('./output')
     # load dataset
-    X = np.loadtxt('./monk/monks-'+str(d)+'.train', dtype='string', delimiter=' ')
-    if shuffle:
-        np.random.shuffle(X)
-    X, y = prep_data(X)
-    X = norm_data(X).astype('float32')
-    return X, y
+    if d == 4:
+        X = np.loadtxt('./cup/ML-CUP17-TR.csv', dtype='float32', delimiter=',')
+        X = X[:,1:]
+        y = X[:,-2:X.shape[1]]
+        X = X[:,:-2]
+        if shuffle:
+            np.random.shuffle(X)
+    elif d==1 or d==2 or d==3:
+        X = np.loadtxt('./monk/monks-'+str(d)+'.train', dtype='string', delimiter=' ')
+        if shuffle:
+            np.random.shuffle(X)
+        X, y = prep_data(X)
+        X = norm_data(X).astype('float32')
+    else:
+        print('Error: d must be 1,2,3 or 4.')
+        return None
+    return X.astype('float32'), y.astype('float32')

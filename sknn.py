@@ -18,7 +18,7 @@ for hl in np.arange(5,16,5):
         assy=0
         for lr in lrs:
 
-            clf = MLPClassifier(solver='sgd',tol=0,activation="tanh",learning_rate_init=lr,max_iter=250,nesterovs_momentum=True,
+            clf = MLPClassifier(solver='sgd',loss='squared_loss' ,tol=0,activation="tanh",learning_rate_init=lr,max_iter=250,nesterovs_momentum=True,
                                 hidden_layer_sizes=(hl,), momentum=0.9, alpha=1e-3, batch_size=32, shuffle=False)
             scores = cross_val_score(clf,X,y,cv=5)
             clf.fit(X, y)

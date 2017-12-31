@@ -42,6 +42,10 @@ class PlotLosses(keras.callbacks.Callback):
         plt.show();
 plot_losses = PlotLosses()
 
+from keras import backend as K
+def mean_euc_dist(y_true, y_pred):
+    return K.mean(K.sqrt(K.sum(K.square(y_true - y_pred), axis=0, keepdims=True)))
+
 def func_model(f,nodes,lr):
     inputs = Input(shape=(X.shape[1],))
 
@@ -52,7 +56,7 @@ def func_model(f,nodes,lr):
     # This creates a model that includes
     # the Input layer and two Dense layers
     model = Model(inputs=inputs, outputs=predictions)
-    sgd = optimizers.SGD(lr=lr, decay=1e-3, momentum=0.9, nesterov=False)
+    sgd = optimizers.SGD(lr=lr, decay=1e-3, momentum=0.9, nesterov=True)
     model.compile(optimizer=sgd,
                   loss='mean_squared_error',
                   metrics=['accuracy'])
@@ -68,7 +72,7 @@ for hl in hls:
         if tanh:
             y = np.where(y == 0, -1, y)
             model = func_model('tanh',5,lr)
-        else: model = func_model('sigmoid')
+        else: model = func_model('relu',5,lr)
         kfold = KFold(n_splits=3)
         cvscores = []
         for train, test in kfold.split(X, y):
