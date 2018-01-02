@@ -1,9 +1,6 @@
 from utils import *
-from validation import *
-def mean_euc_dist(y_true, y_pred):
-    return tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(y_true - y_pred), axis=0, keep_dims=True)))
 
-def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=False, cv=3):
+def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=True, cv=3):
     """
     This function creates a model depending on arguments:
         d: dataset (monk1,2,3 or 4 cup)
@@ -24,7 +21,7 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Fa
         tanh = False
     else: testX, testY = test_data(d)
     if cv:
-        idxs = cross_validation2(cv)
+        idxs = cross_validation(cv)
         if tanh and d != 4:
             testY = np.where(testY == 0, -1, testY)
             lab = np.where(lab == 0, -1, lab)
@@ -51,15 +48,15 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Fa
         output = tf.placeholder(tf.float32, name='output_l')
         # weight and bias initialization
         # hidden layer
-        w1 = tf.Variable(tf.random_uniform([inputlayer_neurons, hiddenlayer_neurons], dtype=tf.float32, name='w_hidden_l'))
-        b1 = tf.Variable(tf.random_uniform([hiddenlayer_neurons], dtype=tf.float32, name='wb_hidden_l'))
+        w1 = tf.Variable(tf.random_normal([inputlayer_neurons, hiddenlayer_neurons], dtype=tf.float32, name='w_hidden_l'))
+        b1 = tf.Variable(tf.random_normal([hiddenlayer_neurons], dtype=tf.float32, name='wb_hidden_l'))
         # output layer
-        w2 = tf.Variable(tf.random_uniform([hiddenlayer_neurons, output_neurons], dtype=tf.float32, name='w_output_l'))
-        b2 = tf.Variable(tf.random_uniform([output_neurons], dtype=tf.float32, name='wb_output_l'))
+        w2 = tf.Variable(tf.random_normal([hiddenlayer_neurons, output_neurons], dtype=tf.float32, name='w_output_l'))
+        b2 = tf.Variable(tf.random_normal([output_neurons], dtype=tf.float32, name='wb_output_l'))
         # w1 = (w1*2)/inputlayer_neurons
         # w2 = (w2*2)/inputlayer_neurons
         # putting together
-        if tanh:
+        if tanh and d != 4:
             a1 = tf.nn.tanh(tf.nn.bias_add(tf.matmul(a0, w1), b1), name='hidden_l')
             a2 = tf.nn.tanh(tf.nn.bias_add(tf.matmul(a1, w2), b2), name='output_l')
         elif d == 4:
@@ -142,29 +139,31 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Fa
                         yp = np.matrix(y[idx,:])
                         for steps in range(int(X.shape[0]/bs)):
                             _, summ1 = sess.run([step, merged_train], feed_dict={a0: xp, output: yp})
-                        writer_train.add_summary(summ1, i)
                     else:
                         _, summ1 = sess.run([step, merged_train], feed_dict={a0: X, output: y})
-                        writer_train.add_summary(summ1, i)
+                    if not cv: writer_train.add_summary(summ1, i)
                     # validation & test
-                    acc_val, summ2 = sess.run([loss,merged_val], feed_dict={a0: valX, output: valY})
-                    acc_test, summ3 = sess.run([accuracy,merged_test], feed_dict={a0: testX, output: testY})
-                    writer_vl.add_summary(summ2, i)
-                    writer_test.add_summary(summ3, i)
-                # acc_val = acc_val * 100
-                acc_test = acc_test * 100
-                cvscores.append(acc_val)
-                print "acc_val: %.2f%%" % acc_val
-                print "acc_test: %.2f%%" % acc_test
+                    if d == 4:
+                        acc_val, summ2 = sess.run([loss,merged_val], feed_dict={a0: valX, output: valY})
+                    else:
+                        acc_val, summ2 = sess.run([accuracy,merged_val], feed_dict={a0: valX, output: valY})
+                        acc_test, summ3 = sess.run([accuracy,merged_test], feed_dict={a0: testX, output: testY})
+                        if not cv: writer_test.add_summary(summ3, i)
+                        acc_val = acc_val * 100
+                        acc_test = acc_test * 100
+                    if not cv: writer_vl.add_summary(summ2, i)
+                if d== 4: print "loss_val: %.2f" % acc_val
+                else:
+                    print "acc_val: %.2f%%" % acc_val
+                    print "acc_test: %.2f%%" % acc_test
                 print " "
+                cvscores.append(acc_val)
                 writer_test.close()
                 writer_vl.close()
                 writer_train.close()
                 sess.close()
         print "CV", "lr="+str(lr), "hl="+str(hl_u)
-        print "%.2f%% (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores))
+        if d == 4: print "%.2f (+/- %.2f)" % (np.mean(cvscores), np.std(cvscores))
+        else: print "%.2f%% (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores))
         print " "
         return [np.mean(cvscores), np.std(cvscores), lr, hl_u]
-
-
-nn(4, bs=None, epoch=250, hl_u=5, mom=0.9, cv=None, alpha=1e-3)

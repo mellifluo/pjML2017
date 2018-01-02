@@ -87,3 +87,17 @@ def init(d=4, shuffle=True):
         print('Error: d must be 1,2,3 or 4.')
         return None
     return X.astype('float32'), y.astype('float32')
+
+def cross_validation(k, dataset=1):
+    test = np.loadtxt('./monk/monks-'+str(dataset)+'.train', dtype='string', delimiter=' ')
+    test, y = prep_data(test)
+    test = norm_data(test)
+    l = len(test)
+    indexes = np.array([]).astype(np.int64)
+    indexes = np.append(indexes,0)
+    for i in range(1,k+1):
+        indexes = np.append(indexes,l*i//k)
+    return indexes
+
+def mean_euc_dist(y_true, y_pred):
+    return tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(y_true - y_pred), axis=-1, keep_dims=True)))
