@@ -15,33 +15,6 @@ from sklearn.model_selection import GridSearchCV
 # import seaborn as sns
 # sns.set(color_codes=True)
 
-# updatable plot
-class PlotLosses(keras.callbacks.Callback):
-    def on_train_begin(self, logs={}):
-        self.i = 0
-        self.x = []
-        self.losses = []
-        self.accs = []
-
-        self.fig = plt.figure()
-
-        self.logs = []
-
-    def on_epoch_end(self, epoch, logs={}):
-
-        self.logs.append(logs)
-        self.x.append(self.i)
-        self.losses.append(logs.get('loss'))
-        self.accs.append(logs.get('acc'))
-        self.i += 1
-
-        clear_output(wait=True)
-        plt.plot(self.x, self.losses, label="loss")
-        plt.plot(self.x, self.accs, label="acc")
-        plt.legend()
-        plt.show();
-plot_losses = PlotLosses()
-
 from keras import backend as K
 def mean_euc_dist(y_true, y_pred):
     return K.mean(K.sqrt(K.sum(K.square(y_true - y_pred), axis=-1, keepdims=True)))
@@ -50,8 +23,8 @@ def func_model(f,nodes,lr):
     inputs = Input(shape=(X.shape[1],))
 
     # a layer instance is callable on a tensor, and returns a tensor
-    x = Dense(nodes, activation=f)(inputs)
-    predictions = Dense(1, activation=f)(x)
+    x = Dense(nodes)(inputs)
+    predictions = Dense(2)(x)
 
     # This creates a model that includes
     # the Input layer and two Dense layers

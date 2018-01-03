@@ -48,10 +48,10 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Tr
         output = tf.placeholder(tf.float32, name='output_l')
         # weight and bias initialization
         # hidden layer
-        w1 = tf.Variable(tf.random_normal([inputlayer_neurons, hiddenlayer_neurons], dtype=tf.float32, name='w_hidden_l'))
+        w1 = tf.Variable(tf.random_normal([inputlayer_neurons, hiddenlayer_neurons], seed=1, dtype=tf.float32, name='w_hidden_l'))
         b1 = tf.Variable(tf.random_normal([hiddenlayer_neurons], dtype=tf.float32, name='wb_hidden_l'))
         # output layer
-        w2 = tf.Variable(tf.random_normal([hiddenlayer_neurons, output_neurons], dtype=tf.float32, name='w_output_l'))
+        w2 = tf.Variable(tf.random_normal([hiddenlayer_neurons, output_neurons], seed=2, dtype=tf.float32, name='w_output_l'))
         b2 = tf.Variable(tf.random_normal([output_neurons], dtype=tf.float32, name='wb_output_l'))
         # w1 = (w1*2)/inputlayer_neurons
         # w2 = (w2*2)/inputlayer_neurons
@@ -60,8 +60,8 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Tr
             a1 = tf.nn.tanh(tf.nn.bias_add(tf.matmul(a0, w1), b1), name='hidden_l')
             a2 = tf.nn.tanh(tf.nn.bias_add(tf.matmul(a1, w2), b2), name='output_l')
         elif d == 4:
-            a1 = tf.nn.relu(tf.nn.bias_add(tf.matmul(a0, w1), b1), name='hidden_l')
-            a2 = tf.nn.relu(tf.nn.bias_add(tf.matmul(a1, w2), b2), name='output_l')
+            a1 = tf.nn.bias_add(tf.matmul(a0, w1), b1, name='hidden_l')
+            a2 = tf.nn.bias_add(tf.matmul(a1, w2), b2, name='output_l')
         else:
             a1 = tf.nn.sigmoid(tf.nn.bias_add(tf.matmul(a0, w1), b1), name='hidden_l')
             a2 = tf.nn.sigmoid(tf.nn.bias_add(tf.matmul(a1, w2), b2), name='output_l')
@@ -141,17 +141,17 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Tr
                             _, summ1 = sess.run([step, merged_train], feed_dict={a0: xp, output: yp})
                     else:
                         _, summ1 = sess.run([step, merged_train], feed_dict={a0: X, output: y})
-                    if not cv: writer_train.add_summary(summ1, i)
+                    if cv == 1: writer_train.add_summary(summ1, i)
                     # validation & test
                     if d == 4:
                         acc_val, summ2 = sess.run([loss,merged_val], feed_dict={a0: valX, output: valY})
                     else:
                         acc_val, summ2 = sess.run([accuracy,merged_val], feed_dict={a0: valX, output: valY})
                         acc_test, summ3 = sess.run([accuracy,merged_test], feed_dict={a0: testX, output: testY})
-                        if not cv: writer_test.add_summary(summ3, i)
+                        if cv == 1: writer_test.add_summary(summ3, i)
                         acc_val = acc_val * 100
                         acc_test = acc_test * 100
-                    if not cv: writer_vl.add_summary(summ2, i)
+                    if cv == 1: writer_vl.add_summary(summ2, i)
                 if d== 4: print "loss_val: %.2f" % acc_val
                 else:
                     print "acc_val: %.2f%%" % acc_val
