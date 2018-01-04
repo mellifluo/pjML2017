@@ -46,17 +46,17 @@ def nn(d=1,classification=True):
 
         fig_dims = (3, 3)
         sns.set()
-        lrs = [0.1]
+        lrs = [0.05,0.1,0.5]
         moms = [0.9,0.7,0.5]
         assx=0
         for hl in np.arange(5,16,5):
                 assy=0
                 for lr in lrs:
 
-                    clf = MLPRegressor(solver='sgd',tol=0,activation="identity",learning_rate_init=lr,max_iter=250,nesterovs_momentum=True,
-                                        hidden_layer_sizes=(hl,), verbose=True, momentum=0.9, loss='euclid_dist', alpha=1e-2, batch_size=32, shuffle=False)
+                    clf = MLPRegressor(solver='sgd',tol=0,activation="tanh",learning_rate_init=lr,max_iter=100,nesterovs_momentum=True,
+                                        hidden_layer_sizes=(hl,), momentum=0.9, loss='euclid_dist', alpha=1e-3, batch_size=32, shuffle=False)
                     scorer = make_scorer(mean_euc_dist, greater_is_better=False)
-                    scores = cross_val_score(clf,X,y,cv=5)
+                    scores = cross_val_score(clf,X,y,cv=3, scoring=scorer)
                     clf.fit(X, y)
                     plt.subplot2grid(fig_dims, (assx, assy))
                     plt.plot(clf.loss_curve_)
@@ -69,4 +69,4 @@ def nn(d=1,classification=True):
 
 
 
-nn(classification=True)
+nn(classification=False)

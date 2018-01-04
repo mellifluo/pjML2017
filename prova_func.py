@@ -50,6 +50,6 @@ def gridsearch(setA, d=4, lr_fix=0.1, alpha_fix=1e-3, mom_fix=0.9, fit=False):
             nn(d, bs=32, epoch=100, lr=lr_fix, hl_u=best[3], mom=mom_fix, cv=None, alpha=best[2])
         elif setA is moms:
             nn(d, bs=32, epoch=100, lr=lr_fix, hl_u=best[3], mom=best[2], cv=None, alpha=alpha_fix)
+            
 
-
-gridsearch(lrs, d=2, alpha_fix=1e-2, fit=True)
+gridsearch(lrs, d=4, alpha_fix=1e-3, fit=True)

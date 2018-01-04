@@ -60,7 +60,7 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Tr
             a1 = tf.nn.tanh(tf.nn.bias_add(tf.matmul(a0, w1), b1), name='hidden_l')
             a2 = tf.nn.tanh(tf.nn.bias_add(tf.matmul(a1, w2), b2), name='output_l')
         elif d == 4:
-            a1 = tf.nn.bias_add(tf.matmul(a0, w1), b1, name='hidden_l')
+            a1 = tf.nn.tanh(tf.nn.bias_add(tf.matmul(a0, w1), b1, name='hidden_l'))
             a2 = tf.nn.bias_add(tf.matmul(a1, w2), b2, name='output_l')
         else:
             a1 = tf.nn.sigmoid(tf.nn.bias_add(tf.matmul(a0, w1), b1), name='hidden_l')
@@ -144,7 +144,7 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Tr
                     if cv == 1: writer_train.add_summary(summ1, i)
                     # validation & test
                     if d == 4:
-                        acc_val, summ2 = sess.run([loss,merged_val], feed_dict={a0: valX, output: valY})
+                        res, acc_val, summ2 = sess.run([a2,loss,merged_val], feed_dict={a0: valX, output: valY})
                     else:
                         acc_val, summ2 = sess.run([accuracy,merged_val], feed_dict={a0: valX, output: valY})
                         acc_test, summ3 = sess.run([accuracy,merged_test], feed_dict={a0: testX, output: testY})
@@ -152,7 +152,8 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Tr
                         acc_val = acc_val * 100
                         acc_test = acc_test * 100
                     if cv == 1: writer_vl.add_summary(summ2, i)
-                if d== 4: print "loss_val: %.2f" % acc_val
+                if d== 4:
+                    print "loss_val: %.2f" % acc_val
                 else:
                     print "acc_val: %.2f%%" % acc_val
                     print "acc_test: %.2f%%" % acc_test
@@ -163,7 +164,9 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Tr
                 writer_train.close()
                 sess.close()
         print "CV", "lr="+str(lr), "hl="+str(hl_u)
-        if d == 4: print "%.2f (+/- %.2f)" % (np.mean(cvscores), np.std(cvscores))
+        if d == 4:
+            print "%.2f (+/- %.2f)" % (np.mean(cvscores), np.std(cvscores))
+            np.savetxt("tf_CUPresults.csv", res, delimiter=',')
         else: print "%.2f%% (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores))
         print " "
         return [np.mean(cvscores), np.std(cvscores), lr, hl_u]
