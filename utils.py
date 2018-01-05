@@ -67,16 +67,16 @@ def init(d=4, shuffle=True):
     prepare the environment and the data
     returns the normalized data
     """
-    if os.path.exists('./output'):
-        shutil.rmtree('./output')
+    # if os.path.exists('./output'):
+    #     shutil.rmtree('./output')
     # load dataset
     if d == 4:
         X = np.loadtxt('./cup/ML-CUP17-TR.csv', dtype='float32', delimiter=',')
+        if shuffle:
+            np.random.shuffle(X)
         X = X[:,1:]
         y = X[:,-2:X.shape[1]]
         X = X[:,:-2]
-        if shuffle:
-            np.random.shuffle(X)
     elif d==1 or d==2 or d==3:
         X = np.loadtxt('./monk/monks-'+str(d)+'.train', dtype='string', delimiter=' ')
         if shuffle:
@@ -88,11 +88,9 @@ def init(d=4, shuffle=True):
         return None
     return X.astype('float32'), y.astype('float32')
 
-def cross_validation(k, dataset=1):
-    test = np.loadtxt('./monk/monks-'+str(dataset)+'.train', dtype='string', delimiter=' ')
-    test, y = prep_data(test)
-    test = norm_data(test)
-    l = len(test)
+def cross_validation(k, d=1):
+    X, y = init(d)
+    l = len(X)
     indexes = np.array([]).astype(np.int64)
     indexes = np.append(indexes,0)
     for i in range(1,k+1):

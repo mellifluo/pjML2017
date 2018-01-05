@@ -15,13 +15,13 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Tr
     Returns the graph of the model or writes the tensorboard's files in the
     folder './output'
     """
-    df, lab = init(d)
+    df, lab = init(d, shuffle=True)
     if d == 4:
         testX, testY = test_data(d)
         tanh = False
     else: testX, testY = test_data(d)
     if cv:
-        idxs = cross_validation(cv)
+        idxs = cross_validation(cv, d)
         if tanh and d != 4:
             testY = np.where(testY == 0, -1, testY)
             lab = np.where(lab == 0, -1, lab)
@@ -48,13 +48,13 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Tr
         output = tf.placeholder(tf.float32, name='output_l')
         # weight and bias initialization
         # hidden layer
-        w1 = tf.Variable(tf.random_normal([inputlayer_neurons, hiddenlayer_neurons], seed=1, dtype=tf.float32, name='w_hidden_l'))
-        b1 = tf.Variable(tf.random_normal([hiddenlayer_neurons], dtype=tf.float32, name='wb_hidden_l'))
+        fanin1 = np.sqrt((6.0)/(inputlayer_neurons + hiddenlayer_neurons))
+        w1 = tf.Variable(tf.random_uniform([inputlayer_neurons, hiddenlayer_neurons], minval=-fanin1, maxval=fanin1, dtype=tf.float32, name='w_hidden_l'))
+        b1 = tf.Variable(tf.zeros([hiddenlayer_neurons], dtype=tf.float32, name='wb_hidden_l'))
         # output layer
-        w2 = tf.Variable(tf.random_normal([hiddenlayer_neurons, output_neurons], seed=2, dtype=tf.float32, name='w_output_l'))
-        b2 = tf.Variable(tf.random_normal([output_neurons], dtype=tf.float32, name='wb_output_l'))
-        # w1 = (w1*2)/inputlayer_neurons
-        # w2 = (w2*2)/inputlayer_neurons
+        fanin2 = np.sqrt((6.0)/(output_neurons + hiddenlayer_neurons))
+        w2 = tf.Variable(tf.random_uniform([hiddenlayer_neurons, output_neurons], minval=-fanin2, maxval=fanin2, dtype=tf.float32, name='w_output_l'))
+        b2 = tf.Variable(tf.zeros([output_neurons], dtype=tf.float32, name='wb_output_l'))
         # putting together
         if tanh and d != 4:
             a1 = tf.nn.tanh(tf.nn.bias_add(tf.matmul(a0, w1), b1), name='hidden_l')
@@ -146,8 +146,8 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Tr
                     if d == 4:
                         res, acc_val, summ2 = sess.run([a2,loss,merged_val], feed_dict={a0: valX, output: valY})
                     else:
-                        acc_val, summ2 = sess.run([accuracy,merged_val], feed_dict={a0: valX, output: valY})
-                        acc_test, summ3 = sess.run([accuracy,merged_test], feed_dict={a0: testX, output: testY})
+                        lval, acc_val, summ2 = sess.run([loss, accuracy,merged_val], feed_dict={a0: valX, output: valY})
+                        lts, acc_test, summ3 = sess.run([loss, accuracy,merged_test], feed_dict={a0: testX, output: testY})
                         if cv == 1: writer_test.add_summary(summ3, i)
                         acc_val = acc_val * 100
                         acc_test = acc_test * 100
@@ -157,6 +157,8 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Tr
                 else:
                     print "acc_val: %.2f%%" % acc_val
                     print "acc_test: %.2f%%" % acc_test
+                    print "l_val: %.10f" % lval
+                    print "l_test: %.10f" % lts
                 print " "
                 cvscores.append(acc_val)
                 writer_test.close()
