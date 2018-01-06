@@ -51,7 +51,7 @@ def clas_nn():
         assy=0
         for lr in lrs:
 
-            model = func_model('tanh',hl,lr,0.0,1)
+            model = func_model('tanh',hl,lr,0.000001,1)
             kfold = KFold(n_splits=5)
             cvscores = []
 
@@ -108,11 +108,21 @@ def clas_nn():
 
 
 def reg_nn():
+    fig = plt.figure(figsize=(8, 8))
+    fig_dims = (3, 3)
+    sns.set()
+    assx=0
     for hl in hls:
+        assy=0
         for lr in lrs:
-            model = func_model('tanh',hl,lr, out_u=2)
+            model = func_model('tanh',hl,lr,1e-3,out_u=2)
             kfold = KFold(n_splits=3)
             cvscores = []
+            cvpercent = int(X.shape[0]*(.3))
+            testXval = X[:cvpercent,:]
+            testyval = y[:cvpercent,:]
+            Xtr = X[cvpercent:,:]
+            ytr = y[cvpercent:,:]
             for train, test in kfold.split(X, y):
             	# Fit the model
             	model.fit(X[train], y[train], epochs=100, verbose=0, shuffle=False)
@@ -123,6 +133,24 @@ def reg_nn():
             print("%.2f (+/- %.2f)" % (np.mean(cvscores), np.std(cvscores)))
             cvs.append([np.mean(cvscores), np.std(cvscores), lr, hl])
 
+            model = func_model('tanh',hl,lr,1e-3,2)
+
+            history = model.fit(Xtr,ytr, epochs=100, verbose=0, validation_data=(testXval,testyval), shuffle=False)
+            print 'MSE:' ,history.history['loss'][99]
+            print 'MSE test:' ,history.history['val_loss'][99]
+            plt.subplot2grid(fig_dims, (assx, assy))
+            plt.xlabel('Epochs')
+            plt.tight_layout()
+            plt.title('lr='+ str(lr)+" U="+str(hl))
+            plt.plot(history.history['loss'],label="MEE_TR")
+            plt.plot(history.history['val_loss'], label='MEE_VL',linestyle='--')
+            plt.legend(loc='best')
+
+            assy=assy+1
+
+        assx=assx+1
+    plt.show()
+    fig.savefig('./gridReg.png')
     m = min([b[0] for b in cvs])
     best = next((x for x in cvs if m == x[0]), None)
 
@@ -130,19 +158,26 @@ def reg_nn():
     print "Best with lr=%.2f and %d hidden layer units:" % (best[2], best[3])
     print "%.2f (+/- %.2f)" % (best[0], best[1])
 
-    model2 = func_model('tanh', best[3], best[2], out_u=2)
-    model.fit(X, y, epochs=500, verbose=0, shuffle=False)
-    res = model.predict(testX)
-    np.savetxt("k_CUPresults.csv", res, delimiter=',')
 
-d=3
+    model = func_model('tanh', best[3], best[2],1e-3, out_u=2)
+    model.fit(X, y, epochs=100, verbose=0, shuffle=False)
+    res = model.predict(testX)
+    res = np.round(res, decimals=6)
+    import pandas as pd
+    df = pd.DataFrame(res)
+    df.index += 1
+    df.to_csv("k_CUPresults.csv", header=None)
+
+d=4
 X, y = init(d, shuffle=True)
 testX,testy=test_data(d)
 lrs = [0.01]
-hls = [3]
+hls = [10]
 cvs = []
+
 if d != 4:
     y = np.where(y == 0, -1, y)
     testy = np.where(testy == 0, -1, testy)
-# reg_nn()
-clas_nn()
+
+reg_nn()
+#clas_nn()

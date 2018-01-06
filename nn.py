@@ -1,6 +1,6 @@
 from utils import *
 
-def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=True, cv=3):
+def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=True, cv=3, dbcv=False):
     """
     This function creates a model depending on arguments:
         d: dataset (monk1,2,3 or 4 cup)
@@ -17,11 +17,17 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Tr
     """
     df, lab = init(d, shuffle=True)
     if d == 4:
+        if not dbcv:
+            cvpercent = int(df.shape[0]*(.3))
+            testXcv = df[:cvpercent,:]
+            testYcv = lab[:cvpercent,:]
+            df = df[cvpercent:,:]
+            lab = lab[cvpercent:,:]
         testX, testY = test_data(d)
         tanh = False
     else: testX, testY = test_data(d)
     if cv:
-        idxs = cross_validation(cv, d)
+        idxs = cross_validation(len(df), cv, d)
         if tanh and d != 4:
             testY = np.where(testY == 0, -1, testY)
             lab = np.where(lab == 0, -1, lab)
@@ -105,25 +111,37 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Tr
         if not cv: cv = 1
         for jj in range(cv):
             if cv != 1:
-                maskX = np.ones(len(df), dtype=bool)
-                maskY = np.ones(len(lab), dtype=bool)
+                mask = np.ones(len(df), dtype=bool)
                 if idxs[jj]:
                     valX = df[idxs[jj]+1:idxs[jj+1]]
-                    maskX[idxs[jj]+1:idxs[jj+1]] = False
                     valY = lab[idxs[jj]+1:idxs[jj+1]]
-                    maskY[idxs[jj]+1:idxs[jj+1]] = False
+                    mask[idxs[jj]+1:idxs[jj+1]] = False
                 else:
                     valX = df[idxs[jj]:idxs[jj+1]]
-                    maskX[idxs[jj]:idxs[jj+1]] = False
                     valY = lab[idxs[jj]:idxs[jj+1]]
-                    maskY[idxs[jj]:idxs[jj+1]] = False
-                X = df[maskX, :]
-                y = lab[maskY, :]
+                    mask[idxs[jj]:idxs[jj+1]] = False
+                X = df[mask, :]
+                y = lab[mask, :]
+                if d == 4 and dbcv:
+                    mask = np.ones(len(X), dtype=bool)
+                    if idxs[jj]:
+                        testX = X[idxs[jj]+1:idxs[jj+1]]
+                        testY = y[idxs[jj]+1:idxs[jj+1]]
+                        mask[idxs[jj]+1:idxs[jj+1]] = False
+                    else:
+                        testXcv = X[idxs[jj]:idxs[jj+1]]
+                        testYcv = y[idxs[jj]:idxs[jj+1]]
+                        mask[idxs[jj]:idxs[jj+1]] = False
+                    X = X[mask, :]
+                    y = y[mask, :]
             with tf.Session(graph=graph) as sess:
                 sess.run(tf.global_variables_initializer())
                 print "lr="+str(lr), "hl="+str(hl_u)
                 addstr = "val" + str(jj)
                 if cv != 1: print addstr, idxs[jj], idxs[jj+1]
+                if d == 4 and dbcv:
+                    if idxs[jj] > idxs[-1]/2: print "ts" + str(jj), idxs[jj-1], idxs[jj]
+                    else: print "ts" + str(jj), idxs[jj+1], idxs[jj+2]
                 # logs for tensorboard
                 str_tr = "output/train/lr" + str(lr) + "a" + str(alpha) + "hl" + str(hl_u) + "ep" + str(epoch) + str(addstr)
                 str_vl = "output/val/lr" + str(lr) + "a" + str(alpha) + "hl" + str(hl_u)  + "ep" + str(epoch) + str(addstr)
@@ -145,6 +163,7 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Tr
                     # validation & test
                     if d == 4:
                         res, acc_val, summ2 = sess.run([a2,loss,merged_val], feed_dict={a0: valX, output: valY})
+                        acc_test, summ3 = sess.run([loss,merged_test], feed_dict={a0: testXcv, output: testYcv})
                     else:
                         lval, acc_val, summ2 = sess.run([loss, accuracy,merged_val], feed_dict={a0: valX, output: valY})
                         lts, acc_test, summ3 = sess.run([loss, accuracy,merged_test], feed_dict={a0: testX, output: testY})
@@ -154,13 +173,14 @@ def nn(d, bs=32, hl_u=5, lr=0.1, mom=0.9, alpha=0, epoch=100, tanh=True, nest=Tr
                     if cv == 1: writer_vl.add_summary(summ2, i)
                 if d== 4:
                     print "loss_val: %.2f" % acc_val
+                    print "l_test: %.2f" % acc_test
                 else:
                     print "acc_val: %.2f%%" % acc_val
                     print "acc_test: %.2f%%" % acc_test
                     print "l_val: %.10f" % lval
                     print "l_test: %.10f" % lts
                 print " "
-                cvscores.append(acc_val)
+                cvscores.append(acc_test)
                 writer_test.close()
                 writer_vl.close()
                 writer_train.close()

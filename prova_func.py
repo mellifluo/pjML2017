@@ -5,7 +5,7 @@ from nn import *
 file per fare tutte 'e prov e ripigliare tutt' chell che e nuost
 """
 hls = [3,4,5]
-lrs = [0.05,0.08,0.1]
+lrs = [0.01,0.05,0.1]
 alphas = [0.01,0.001,0.0001]
 moms = [0.9,0.7,0.5]
 
@@ -53,5 +53,5 @@ def gridsearch(setA, d=4, lr_fix=0.1, alpha_fix=1e-3, mom_fix=0.9, fit=False):
             nn(d, bs=32, epoch=500, lr=lr_fix, hl_u=best[3], mom=best[2], cv=None, alpha=alpha_fix)
 
 
-# gridsearch(lrs, d=3, alpha_fix=0.0, fit=True)
-nn(4, bs=32, epoch=100, lr=0.01, alpha=0.001, hl_u=10, tanh=True, cv=None)
+# gridsearch(lrs, d=4, alpha_fix=1e-6, fit=True)
+nn(4, bs=32, epoch=100, lr=0.01, alpha=1e-3, hl_u=10, tanh=False, cv=None)

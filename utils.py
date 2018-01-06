@@ -2,6 +2,7 @@
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 import os, shutil
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 
@@ -67,8 +68,8 @@ def init(d=4, shuffle=True):
     prepare the environment and the data
     returns the normalized data
     """
-    # if os.path.exists('./output'):
-    #     shutil.rmtree('./output')
+    if os.path.exists('./output'):
+        shutil.rmtree('./output')
     # load dataset
     if d == 4:
         X = np.loadtxt('./cup/ML-CUP17-TR.csv', dtype='float32', delimiter=',')
@@ -88,9 +89,7 @@ def init(d=4, shuffle=True):
         return None
     return X.astype('float32'), y.astype('float32')
 
-def cross_validation(k, d=1):
-    X, y = init(d)
-    l = len(X)
+def cross_validation(l, k, d=1):
     indexes = np.array([]).astype(np.int64)
     indexes = np.append(indexes,0)
     for i in range(1,k+1):
