@@ -2,8 +2,8 @@
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-import time
 import os, shutil
+# this command deletes warnings on using CPU
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 
 def norm_data(X):
@@ -90,6 +90,9 @@ def init(d=4, shuffle=True):
     return X.astype('float32'), y.astype('float32')
 
 def cross_validation(l, k, d=1):
+    """
+    prepare the indexes for the cross validation
+    """
     indexes = np.array([]).astype(np.int64)
     indexes = np.append(indexes,0)
     for i in range(1,k+1):
@@ -97,4 +100,7 @@ def cross_validation(l, k, d=1):
     return indexes
 
 def mean_euc_dist(y_true, y_pred):
+    """
+    define MEE
+    """
     return tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(y_true - y_pred), axis=-1, keep_dims=True)))

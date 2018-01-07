@@ -1,8 +1,8 @@
 from utils import *
-from nn import *
+from tf_model import *
 
 """
-file per fare tutte 'e prov e ripigliare tutt' chell che e nuost
+change parameters for gridsearch
 """
 hls = [3,4,5]
 lrs = [0.01,0.05,0.1]
@@ -10,12 +10,8 @@ alphas = [0.01,0.001,0.0001]
 moms = [0.9,0.7,0.5]
 
 def gridsearch(setA, d=4, lr_fix=0.1, alpha_fix=1e-3, mom_fix=0.9, fit=False):
-    """
-    gridsearch with hidden layer units set
-    setA: , initializer=tf.random_normal_initializer()
-, initializer=tf.random_normal_initializer()could be lrs, alphas or moms(momentums)
-    """
     cvs = []
+    # search in terms of global arrays (lrs,alphas,moms). hls always fixed
     if setA is lrs:
         s = "lr"
         for hl in hls:
@@ -31,7 +27,7 @@ def gridsearch(setA, d=4, lr_fix=0.1, alpha_fix=1e-3, mom_fix=0.9, fit=False):
         for hl in hls:
             for a in setA:
                 cvs.append(nn(d, bs=32, epoch=200, lr=lr_fix, hl_u=hl, mom=a, cv=5, alpha=alpha_fix))
-    # forse basta il massimo dell acc_val
+    # (sort of) model selection (a really greedy choice, not used for the project)
     if d == 4:
         m = min([b[0] for b in cvs])
         best = next((x for x in cvs if m == x[0]), None)
@@ -52,6 +48,8 @@ def gridsearch(setA, d=4, lr_fix=0.1, alpha_fix=1e-3, mom_fix=0.9, fit=False):
         elif setA is moms:
             nn(d, bs=32, epoch=500, lr=lr_fix, hl_u=best[3], mom=best[2], cv=None, alpha=alpha_fix)
 
-
+# for model selection:
 # gridsearch(lrs, d=4, alpha_fix=1e-6, fit=True)
-nn(4, bs=32, epoch=100, lr=0.01, alpha=1e-3, hl_u=10, tanh=False, cv=None)
+###################################
+# if model selection was already made, run only this command, with cv=None:
+# nn(4, bs=32, epoch=100, lr=0.01, alpha=1e-3, hl_u=10, tanh=False, cv=None)
